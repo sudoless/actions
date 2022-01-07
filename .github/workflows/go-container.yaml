@@ -1,0 +1,81 @@
+name: SUDOLESS Go Container
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+      latest:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      GITHUB_USER:
+        required: true
+      GITLAB_TOKEN:
+        required: true
+      GITLAB_USER:
+        required: true
+
+
+jobs:
+  container_build:
+    name: Container Build & Release
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v2
+        with:
+          name: vendor
+          path: ./vendor/
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Login to Container Registry (Github)
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GITHUB_USER  }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Container Registry (Gitlab)
+        uses: docker/login-action@v1
+        with:
+          registry: registry.gitlab.com
+          username: ${{ secrets.GITLAB_USER  }}
+          password: ${{ secrets.GITLAB_TOKEN }}
+
+      - name: Build Container Image
+        run: make container-build-dummy
+
+      - name: Tag & Push Container Images
+        run: |
+          CONTAINER_TARGET_IMAGE=ghcr.io/${{github.repository}}/${{ inputs.app }} make container-push-${{ inputs.app }}
+
+      - name: Tag & Push Container Images (latest)
+        if: inputs.latest == 'true'
+        run: |
+          CONTAINER_TARGET_ARTIFACT=ghcr.io/${{github.repository}}/${{ inputs.app }}:latest make container-push-${{ inputs.app }}
+
+      - name: List Container Images
+        run: make container-list

@@ -1,0 +1,76 @@
+name: SUDOLESS Go CI
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+
+
+jobs:
+  check_test_build:
+    strategy:
+      matrix:
+        go: [ 1.17 ]
+        include:
+          - os: ubuntu-latest
+            go-build: ~/.cache/go-build
+    name: ${{ matrix.go }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    steps:
+
+      - name: Set up Go ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Info
+        run: make info
+
+      - name: List Dev Deps
+        run: make dev-deps-file
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ${{ matrix.go-build }}
+            ~/go/pkg/mod
+            ./vendor
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ hashFiles('./out/dev_deps.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install Dev Deps
+        run: GOBIN=~/go/bin make dev-deps
+
+      - name: Vendor
+        run: make vendor
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: vendor
+          path: ./vendor/
+
+      - name: Check
+        run: make check
+
+      - name: Check Align
+        run: make align
+
+      - name: Check Format
+        run: make fmt
+
+      - name: Check Lint
+        run: make lint
+
+      - name: Run Tests
+        run: make test
+
+      - name: Build
+        run: make build-${{ inputs.app }}
