@@ -10,11 +10,15 @@ on:
 jobs:
   check_test_build:
     strategy:
+      fail-fast: false
+      max-parallel: 4
       matrix:
-        go: [ 1.17 ]
+        go: [ '1.17' ]
         include:
           - os: ubuntu-latest
             go-build: ~/.cache/go-build
+
+
     name: ${{ matrix.go }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -22,6 +26,7 @@ jobs:
       - name: Set up Go ${{ matrix.go }}
         uses: actions/setup-go@v2
         with:
+          stable: 'false'
           go-version: ${{ matrix.go }}
 
       - name: Checkout Code
@@ -32,16 +37,12 @@ jobs:
       - name: Info
         run: make info
 
-      - name: List Dev Deps
-        run: make go/dev-deps-file
-
       - uses: actions/cache@v2
         with:
           path: |
             ${{ matrix.go-build }}
             ~/go/pkg/mod
-            ~/go/bin
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ hashFiles('./out/dev_deps.txt') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
@@ -53,8 +54,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Install Dev Deps
-        run: GOBIN=~/go/bin make go/dev-deps
+      - name: Install dependencies
+        run: GOBIN=~/go/bin make go/ci-deps
 
       - name: Vendor
         run: make go/vendor
@@ -81,3 +82,4 @@ jobs:
         with:
           name: out-${{ matrix.os }}-${{ matrix.go }}
           path: ./out/
+          retention-days: 14
