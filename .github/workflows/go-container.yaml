@@ -1,4 +1,3 @@
-name: SUDOLESS Go Container
 
 on:
   workflow_call:
@@ -34,10 +33,13 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v2
+      - uses: actions/cache@v2
         with:
-          name: vendor
-          path: ./vendor/
+          path: |
+            ./vendor
+          key: ${{ runner.os }}-go_vendor-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
       - name: Set up Docker Buildx
         id: buildx
@@ -66,16 +68,16 @@ jobs:
           password: ${{ secrets.GITLAB_TOKEN }}
 
       - name: Build Container Image
-        run: make container-build-dummy
+        run: make container/build/dummy
 
       - name: Tag & Push Container Images
         run: |
-          CONTAINER_TARGET_IMAGE=ghcr.io/${{github.repository}}/${{ inputs.app }} make container-push-${{ inputs.app }}
+          CONTAINER_TARGET_IMAGE=ghcr.io/${{github.repository}}/${{ inputs.app }} make container/push/${{ inputs.app }}
 
       - name: Tag & Push Container Images (latest)
         if: inputs.latest == 'true'
         run: |
-          CONTAINER_TARGET_ARTIFACT=ghcr.io/${{github.repository}}/${{ inputs.app }}:latest make container-push-${{ inputs.app }}
+          CONTAINER_TARGET_ARTIFACT=ghcr.io/${{github.repository}}/${{ inputs.app }}:latest make container/push/${{ inputs.app }}
 
       - name: List Container Images
-        run: make container-list
+        run: make container/list

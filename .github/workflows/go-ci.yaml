@@ -1,4 +1,3 @@
-name: SUDOLESS Go CI
 
 on:
   workflow_call:
@@ -34,43 +33,51 @@ jobs:
         run: make info
 
       - name: List Dev Deps
-        run: make dev-deps-file
+        run: make go/dev-deps-file
 
       - uses: actions/cache@v2
         with:
           path: |
             ${{ matrix.go-build }}
             ~/go/pkg/mod
-            ./vendor
+            ~/go/bin
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}-${{ hashFiles('./out/dev_deps.txt') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ./vendor
+          key: ${{ runner.os }}-go_vendor-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Install Dev Deps
-        run: GOBIN=~/go/bin make dev-deps
+        run: GOBIN=~/go/bin make go/dev-deps
 
       - name: Vendor
-        run: make vendor
+        run: make go/vendor
+
+      - name: Check
+        run: make go/check
+
+      - name: Check Align
+        run: make go/align
+
+      - name: Check Format
+        run: make go/fmt
+
+      - name: Check Lint
+        run: make go/lint
+
+      - name: Run Tests
+        run: make go/test
+
+      - name: Build
+        run: make go/build/${{ inputs.app }}
 
       - uses: actions/upload-artifact@v2
         with:
-          name: vendor
-          path: ./vendor/
-
-      - name: Check
-        run: make check
-
-      - name: Check Align
-        run: make align
-
-      - name: Check Format
-        run: make fmt
-
-      - name: Check Lint
-        run: make lint
-
-      - name: Run Tests
-        run: make test
-
-      - name: Build
-        run: make build-${{ inputs.app }}
+          name: out-${{ matrix.os }}-${{ matrix.go }}
+          path: ./out/
