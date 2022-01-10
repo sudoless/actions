@@ -3,6 +3,11 @@ on:
   workflow_call:
     inputs:
       app:
+        required: false
+        type: string
+      # build needs to be a string, not a boolean
+      # https://github.com/actions/runner/issues/1483
+      build:
         required: true
         type: string
 
@@ -76,6 +81,7 @@ jobs:
         run: make go/test
 
       - name: Build
+        if: ${{ inputs.build == 'true' }}
         run: make go/build/${{ inputs.app }}
 
       - uses: actions/upload-artifact@v2
